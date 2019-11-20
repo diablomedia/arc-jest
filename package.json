@@ -1,0 +1,16 @@
+{
+	"name": "arc-jest",
+	"version": "0.0.1",
+	"description": "Jest unit test engine and parser for arcanist/phabricator (extension)",
+	"repository": "https://github.com/VISIT-X/arc-jest",
+	"license": "AGPL-3.0-or-later",
+	"keywords": [
+		"arcanist",
+		"arc",
+		"jest",
+		"phabricator"
+	],
+	"peerDependencies": {
+		"jest": "*"
+	}
+}
