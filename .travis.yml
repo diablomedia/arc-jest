@@ -1,0 +1,28 @@
+language: node_js
+
+os:
+- linux
+- osx
+
+cache:
+  - bundler
+  - npm
+
+stages:
+  - deploy
+
+node_js:
+- 8
+- node
+
+jobs:
+  include:
+
+  - stage: deploy
+    deploy:
+      skip_cleanup: true
+      provider: npm
+      email: "$NPM_EMAIL"
+      api_key: "$API_KEY"
+      on:
+        tags: true
