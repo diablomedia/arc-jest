@@ -85,7 +85,7 @@ class JestUnitTestEngine extends ArcanistUnitTestEngine {
 
 		// If we are running coverage the output includes a visual (non-JSON) representation
 		// If that exists then exclude it before parsing the JSON.
-		$json_start_index = strpos($stdout, '{"success"');
+		$json_start_index = strpos($stdout, '{"');
 		$json_string      = substr($stdout, $json_start_index);
 
 		try {
@@ -140,7 +140,10 @@ class JestUnitTestEngine extends ArcanistUnitTestEngine {
 	}
 
 	public function buildTestFuture() {
-		$command = $this->getWorkingCopy()->getProjectRoot() . '/node_modules/.bin/jest --json ';
+		$config = $this->getUnitConfigSection();
+		$command = array_key_exists('bin', $config)
+			? "{$config['bin']} "
+			: $this->getWorkingCopy()->getProjectRoot() . '/node_modules/.bin/jest --json ';
 
 		$command .= implode(' ', array_unique($this->affectedTests));
 
