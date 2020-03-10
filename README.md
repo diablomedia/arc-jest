@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/VISIT-X/arc-jest.svg?branch=master)](https://travis-ci.org/VISIT-X/arc-jest)
+
+
 # arc-jest
 Arcanist/Phabricator unit test engine for Jest
 
