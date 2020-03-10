@@ -134,8 +134,6 @@ class JestUnitTestEngine extends ArcanistUnitTestEngine {
 			$thirdLevel  = @glob($dir . '/**/**/**.{js,jsx}', GLOB_NOSORT | GLOB_BRACE);
 
 			$files = array_merge($files, $dirFiles, $subDirFiles, $thirdLevel);
-
-			// http-root/js/components/VXMobile/Video/Index.js
 		}
 
 		return $files;
