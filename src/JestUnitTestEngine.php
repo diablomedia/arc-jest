@@ -50,15 +50,7 @@ class JestUnitTestEngine extends ArcanistUnitTestEngine {
 
 			// Not sure if it would make sense to go further if it is not a JS file
 			$extension = pathinfo($path, PATHINFO_EXTENSION);
-			if (!in_array($extension, ['js', 'jsx', 'snap'])) {
-				continue;
-			}
-
-			// is it the part of the test or a test changed?
-			$suffix = substr($path, -8);
-			if (in_array($suffix, ['.spec.js', '.js.snap'], true)) {
-				$pathBaseName               = basename($path);
-				$this->affectedTests[$path] = substr($pathBaseName, 0, strpos($pathBaseName, '.'));
+			if (!in_array($extension, ['js', 'jsx', 'ts', 'tsx'])) {
 				continue;
 			}
 
@@ -67,13 +59,11 @@ class JestUnitTestEngine extends ArcanistUnitTestEngine {
 				continue;
 			}
 
-			if ($test = $this->findTestFile($path, $extension)) {
-				if (!Filesystem::pathExists($test)) {
-					continue;
-				}
-
-				$this->affectedTests[$path] = basename($test, '.spec.js');
+			if (!Filesystem::pathExists($path)) {
+				continue;
 			}
+
+			$this->affectedTests[$path] = basename($path);
 		}
 
 		if (empty($this->affectedTests)) {
@@ -125,18 +115,16 @@ class JestUnitTestEngine extends ArcanistUnitTestEngine {
 	 * @return array|false
 	 */
 	public function getIncludedFiles($include) {
-		$files       = [];
-		$directories = @glob($this->projectRoot . $include, GLOB_ONLYDIR | GLOB_NOSORT | GLOB_BRACE);
+		$dir = new RecursiveDirectoryIterator($this->projectRoot . $include);
+		$ite = new RecursiveIteratorIterator($dir);
+		$files = new RegexIterator($ite, '%\.{js|ts|tsx|jsx}%');
 
-		foreach ($directories as $dir) {
-			$dirFiles    = @glob($dir . '/**.{js,jsx}', GLOB_NOSORT | GLOB_BRACE);
-			$subDirFiles = @glob($dir . '/**/**.{js,jsx}', GLOB_NOSORT | GLOB_BRACE);
-			$thirdLevel  = @glob($dir . '/**/**/**.{js,jsx}', GLOB_NOSORT | GLOB_BRACE);
-
-			$files = array_merge($files, $dirFiles, $subDirFiles, $thirdLevel);
+		$fileList = [];
+		foreach ($files as $file) {
+			$fileList[] = $file->getRealPath();
 		}
 
-		return $files;
+		return $fileList;
 	}
 
 	public function buildTestFuture() {
@@ -205,7 +193,16 @@ class JestUnitTestEngine extends ArcanistUnitTestEngine {
 
 		$reports = [];
 		foreach ($json_result['coverageMap'] as $file => $coverage) {
-			$lineCount      = count(file($file));
+			$shouldSkip = strpos($file, '__fixtures__') !== false
+				|| strpos($file, '__mocks__') !== false
+				|| strpos($file, 'spec') !== false;
+
+			if ($shouldSkip) {
+				continue;
+			}
+
+			$lineCount = count(file($file));
+			$file = str_replace($this->projectRoot . DIRECTORY_SEPARATOR, '', $file);
 			$reports[$file] = str_repeat('U', $lineCount); // not covered by default
 
 			foreach ($coverage['statementMap'] as $chunk) {
@@ -216,43 +213,6 @@ class JestUnitTestEngine extends ArcanistUnitTestEngine {
 		}
 
 		return $reports;
-	}
-
-	/**
-	 * @param string $path
-	 * @param string $extension
-	 *
-	 * @return null|string
-	 */
-	private function findTestFile($path, $extension = 'js') {
-		$root = $this->projectRoot;
-		$path = Filesystem::resolvePath($path, $root);
-
-		$file           = basename($path);
-		$possible_files = [
-			'*' . $file,
-			'*' . substr($file, 0, -strlen($extension)) . 'spec.js',
-		];
-
-		foreach ($this->getSearchLocationsForTests($path) as $search_path) {
-			foreach ($possible_files as $possible_file) {
-				$full_path = $root . $search_path . '/**/' . $possible_file;
-
-				foreach (glob($full_path) as $foundFile) {
-					if (!Filesystem::isDescendant($foundFile, $root)) {
-						// Don't look above the project root.
-						continue;
-					}
-					if (0 == strcasecmp(Filesystem::resolvePath($foundFile), $path)) {
-						// Don't return the original file.
-						continue;
-					}
-					return $foundFile;
-				}
-			}
-		}
-
-		return null;
 	}
 
 	/**
