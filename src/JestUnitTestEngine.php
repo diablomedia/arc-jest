@@ -2,6 +2,7 @@
 
 class JestUnitTestEngine extends ArcanistUnitTestEngine {
 
+	private $command;
 	private $affectedTests = [];
 	private $projectRoot;
 
@@ -140,6 +141,8 @@ class JestUnitTestEngine extends ArcanistUnitTestEngine {
 		if ($this->getEnableCoverage() !== false) {
 			$command .= ' --coverage';
 		}
+
+		$this->command = $command;
 
 		return new ExecFuture('%C', $command);
 	}
