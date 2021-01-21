@@ -2,7 +2,8 @@
 
 class JestUnitTestEngine extends ArcanistUnitTestEngine {
 
-	private $command;
+	const FORCE_ALL_FLAG = 'forceAll';
+
 	private $affectedTests = [];
 	private $projectRoot;
 
@@ -26,49 +27,53 @@ class JestUnitTestEngine extends ArcanistUnitTestEngine {
 	}
 
 	/**
-	 * @param $name
+	 * @param string $name
+	 * @param mixed $default
 	 *
-	 * @return mixed|null
+	 * @return mixed
 	 */
-	public function getUnitConfigValue($name) {
+	public function getUnitConfigValue($name, $default = null) {
 		$config = $this->getUnitConfigSection();
-		return isset($config[$name]) ? $config[$name] : null;
+		return isset($config[$name]) ? $config[$name] : $default;
 	}
 
 	public function run() {
 		$this->projectRoot = $this->getWorkingCopy()->getProjectRoot();
 		$include           = $this->getUnitConfigValue('include');
 		$includeFiles      = $include !== null ? $this->getIncludedFiles($include) : [];
+		$forceRunAll       = $this->getUnitConfigValue(self::FORCE_ALL_FLAG, false);
 
-		foreach ($this->getPaths() as $path) {
-			$path = Filesystem::resolvePath($path, $this->projectRoot);
+		if (!$forceRunAll) {
+			foreach ($this->getPaths() as $path) {
+				$path = Filesystem::resolvePath($path, $this->projectRoot);
 
-			// TODO: add support for directories
-			// Users can call phpunit on the directory themselves
-			if (is_dir($path)) {
-				continue;
+				// TODO: add support for directories
+				// Users can call phpunit on the directory themselves
+				if (is_dir($path)) {
+					continue;
+				}
+
+				// Not sure if it would make sense to go further if it is not a JS file
+				$extension = pathinfo($path, PATHINFO_EXTENSION);
+				if (!in_array($extension, ['js', 'jsx', 'ts', 'tsx'])) {
+					continue;
+				}
+
+				// do we have an include pattern? does it match the file?
+				if (null !== $include && !in_array($path, $includeFiles, true)) {
+					continue;
+				}
+
+				if (!Filesystem::pathExists($path)) {
+					continue;
+				}
+
+				$this->affectedTests[$path] = basename($path);
 			}
 
-			// Not sure if it would make sense to go further if it is not a JS file
-			$extension = pathinfo($path, PATHINFO_EXTENSION);
-			if (!in_array($extension, ['js', 'jsx', 'ts', 'tsx'])) {
-				continue;
+			if (empty($this->affectedTests)) {
+				throw new ArcanistNoEffectException(pht('No tests to run.'));
 			}
-
-			// do we have an include pattern? does it match the file?
-			if (null !== $include && !in_array($path, $includeFiles, true)) {
-				continue;
-			}
-
-			if (!Filesystem::pathExists($path)) {
-				continue;
-			}
-
-			$this->affectedTests[$path] = basename($path);
-		}
-
-		if (empty($this->affectedTests)) {
-			throw new ArcanistNoEffectException(pht('No tests to run.'));
 		}
 
 		$future = $this->buildTestFuture();
@@ -134,15 +139,15 @@ class JestUnitTestEngine extends ArcanistUnitTestEngine {
 			? "{$config['bin']} "
 			: $this->getWorkingCopy()->getProjectRoot() . '/node_modules/.bin/jest --json ';
 
-		$command .= implode(' ', array_unique($this->affectedTests));
+		if (true !== $config[self::FORCE_ALL_FLAG]) {
+			$command .= implode(' ', array_unique($this->affectedTests));
+		}
 
 		// getEnableCoverage() returns either true, false, or null
 		// true and false means it was explicitly turned on or off.  null means use the default
 		if ($this->getEnableCoverage() !== false) {
 			$command .= ' --coverage';
 		}
-
-		$this->command = $command;
 
 		return new ExecFuture('%C', $command);
 	}
