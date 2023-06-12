@@ -6,6 +6,7 @@ class JestUnitTestEngine extends ArcanistUnitTestEngine {
 
 	private $affectedTests = [];
 	private $projectRoot;
+	private $command = '';
 
 	public function getEngineConfigurationName() {
 		return 'jest';
@@ -148,6 +149,8 @@ class JestUnitTestEngine extends ArcanistUnitTestEngine {
 		if ($this->getEnableCoverage() !== false) {
 			$command .= ' --coverage';
 		}
+
+		$this->command = $command;
 
 		return new ExecFuture('%C', $command);
 	}
